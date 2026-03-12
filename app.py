@@ -266,7 +266,9 @@ def voice():
     speak("Please speak your command.")
     time.sleep(0.5)
 
-    command = take_voice_input()
+    #command = take_voice_input()
+    data = request.json
+    command = data.get("command", "").lower()
 
     if not command:
         log_activity(session.get("email"), "voice_command", "Could not understand voice input", status="error")

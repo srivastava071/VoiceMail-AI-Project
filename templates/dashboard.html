@@ -493,17 +493,43 @@
         });
     }
 
-    function startVoice() {
-        setVisualizer(true);
-        document.getElementById("result").innerHTML =
-            "<div class='alert-info'>🎧 Listening for your command...</div>";
+function startVoice() {
 
-        fetch("/voice", { method: "POST" })
+    const greeting = "Welcome back {{ session['user'] }}. Please speak your command.";
+    const greetSpeech = new SpeechSynthesisUtterance(greeting);
+    greetSpeech.lang = "en-US";
+    window.speechSynthesis.speak(greetSpeech);
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+    recognition.lang = "en-US";
+    recognition.start();
+
+    setVisualizer(true);
+
+    document.getElementById("result").innerHTML =
+        "<div class='alert-info'>🎧 Listening...</div>";
+
+    recognition.onresult = function(event) {
+
+        const command = event.results[0][0].transcript;
+
+        fetch("/voice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ command: command })
+        })
         .then(r => r.json())
         .then(data => {
+
             setVisualizer(false);
+
             if (data.emails) {
-                let out = "<h5 style='font-family:Syne,sans-serif;margin-bottom:8px;'>📨 Emails Found</h5>";
+
+                let out = "<h5>📨 Emails Found</h5>";
+
                 data.emails.forEach(e => {
                     out += `
                     <div class="email-card">
@@ -512,21 +538,26 @@
                         <div class="email-summary">${e.summary}</div>
                     </div>`;
                 });
+
                 document.getElementById("result").innerHTML = out;
+
             } else {
+
                 document.getElementById("result").innerHTML =
-                    `<div class='alert-info'>
-                        <b>You said:</b> ${data.command}<br>
-                        <b>Response:</b> ${data.response}
-                    </div>`;
+                `<div class='alert-info'>
+                <b>You said:</b> ${command}<br>
+                <b>Response:</b> ${data.response}
+                </div>`;
+
+                const responseSpeech = new SpeechSynthesisUtterance(data.response);
+                responseSpeech.lang = "en-US";
+                window.speechSynthesis.speak(responseSpeech);
             }
-        })
-        .catch(() => {
-            setVisualizer(false);
-            document.getElementById("result").innerHTML =
-                "<div class='alert-danger'>Connection error. Please try again.</div>";
+
         });
-    }
+
+    };
+}
 
     function stopVoice() {
         setVisualizer(false);
