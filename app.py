@@ -263,8 +263,7 @@ def voice():
         speak(f"Welcome back, {session['user']}.")
         session["welcomed"] = True
 
-    speak("Please speak your command.")
-    time.sleep(0.5)
+    
 
     #command = take_voice_input()
     data = request.json
