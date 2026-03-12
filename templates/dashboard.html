@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Dashboard — Voice Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --void: #07071a;
+            --sidebar-bg: #0d0d26;
+            --main-bg: #0b0b1f;
+            --surface: rgba(255,255,255,0.04);
+            --surface-hover: rgba(255,255,255,0.07);
+            --border: rgba(255,255,255,0.08);
+            --accent1: #6c63ff;
+            --accent2: #00d4ff;
+            --accent3: #ff6584;
+            --text: #e8e8f2;
+            --muted: rgba(232,232,242,0.45);
+            --success: #00e5a0;
+        }
+
+        html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--void); color: var(--text); overflow: hidden; }
+
+        /* ── Layout ── */
+        .app { display: flex; height: 100vh; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 32px 20px;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -100px; left: -100px;
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .brand {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 36px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--accent1), var(--accent2));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+        }
+        .brand-name {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700; font-size: 16px;
+            background: linear-gradient(135deg, #fff, var(--accent2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        /* User card */
+        .user-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 32px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent1), var(--accent3));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .user-info .name { font-size: 14px; font-weight: 500; }
+        .user-info .email {
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 180px;
+}
+
+        /* Nav */
+        nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--muted);
+            font-size: 14px; font-weight: 500;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .nav-item:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+        .nav-item.active {
+            background: rgba(108,99,255,0.15);
+            border-color: rgba(108,99,255,0.3);
+            color: #fff;
+        }
+        .nav-item .icon { font-size: 16px; }
+
+        .nav-bottom { margin-top: auto; }
+        .logout-btn {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 12px;
+            text-decoration: none; color: var(--accent3);
+            font-size: 14px; font-weight: 500;
+            transition: background 0.2s;
+        }
+        .logout-btn:hover { background: rgba(255,101,132,0.1); }
+
+        /* ── Main ── */
+        .main {
+            flex: 1;
+            display: flex; flex-direction: column;
+            background: var(--main-bg);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Aurora in background */
+        .main::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 600px; height: 400px;
+            background: radial-gradient(ellipse at top right, rgba(0,212,255,0.07) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* Topbar */
+        .topbar {
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .page-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 22px; font-weight: 700;
+        }
+        .status-badge {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(0,229,160,0.1);
+            border: 1px solid rgba(0,229,160,0.25);
+            border-radius: 20px; padding: 6px 14px;
+            font-size: 12px; color: var(--success);
+        }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); animation: blink 2s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* Content */
+        .content { padding: 40px; flex: 1; }
+
+        /* Stats row */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px; padding: 20px 22px;
+            display: flex; align-items: center; gap: 16px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .stat-card:hover { border-color: rgba(108,99,255,0.35); transform: translateY(-2px); }
+        .stat-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .stat-icon.purple { background: rgba(108,99,255,0.15); }
+        .stat-icon.cyan   { background: rgba(0,212,255,0.12); }
+        .stat-icon.pink   { background: rgba(255,101,132,0.12); }
+        .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; }
+
+        /* Voice Command card */
+        .voice-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 48px 40px;
+            text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .voice-card::before {
+            content: '';
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent1), var(--accent2), transparent);
+        }
+        .voice-card-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 20px; font-weight: 700; margin-bottom: 6px;
+        }
+        .voice-card-sub { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+
+        /* Mic visualizer */
+        .mic-visualizer {
+            display: flex; align-items: center; justify-content: center;
+            gap: 4px; height: 50px; margin-bottom: 32px;
+        }
+        .bar {
+            width: 4px; border-radius: 4px;
+            background: linear-gradient(to top, var(--accent1), var(--accent2));
+            height: 10px;
+            opacity: 0.3;
+            transition: height 0.1s;
+        }
+        .bar.active { animation: wave var(--spd, 0.8s) ease-in-out infinite alternate; opacity: 1; }
+        @keyframes wave { from { height: 8px; } to { height: 44px; } }
+        .bar:nth-child(2) { --spd: 0.65s; } .bar:nth-child(3) { --spd: 0.9s; }
+        .bar:nth-child(4) { --spd: 0.55s; } .bar:nth-child(5) { --spd: 0.75s; }
+        .bar:nth-child(6) { --spd: 1s; }    .bar:nth-child(7) { --spd: 0.7s; }
+        .bar:nth-child(8) { --spd: 0.85s; } .bar:nth-child(9) { --spd: 0.6s; }
+
+        .btn-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+
+        .btn-start {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--accent1), var(--accent2));
+            border: none; border-radius: 50px;
+            color: #fff; font-family: 'DM Sans', sans-serif;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.25s;
+            box-shadow: 0 8px 30px rgba(108,99,255,0.45);
+        }
+        .btn-start:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(108,99,255,0.55); }
+        .btn-start:active { transform: translateY(0); }
+
+        .btn-stop {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 26px;
+            background: rgba(255,101,132,0.12);
+            border: 1px solid rgba(255,101,132,0.3); border-radius: 50px;
+            color: var(--accent3); font-family: 'DM Sans', sans-serif;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.25s;
+        }
+        .btn-stop:hover { background: rgba(255,101,132,0.2); transform: translateY(-2px); }
+
+        /* Result area */
+        #result { margin-top: 28px; text-align: left; }
+
+        .email-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 20px; margin-top: 12px;
+            border-left: 3px solid var(--accent1);
+            transition: border-color 0.2s;
+        }
+        .email-card:hover { border-left-color: var(--accent2); }
+        .email-card strong { color: var(--accent2); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .email-subject { font-family: 'Syne', sans-serif; font-size: 15px; margin: 6px 0 4px; }
+        .email-summary { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+        .alert-info {
+            background: rgba(0,212,255,0.08);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 12px; padding: 16px 18px;
+            font-size: 14px; color: var(--text);
+        }
+        .alert-danger {
+            background: rgba(255,101,132,0.08);
+            border: 1px solid rgba(255,101,132,0.2);
+            border-radius: 12px; padding: 16px 18px;
+            font-size: 14px; color: var(--accent3);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Activity Panel ── */
+        .activity-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-top: 24px;
+            overflow: hidden;
+        }
+        .activity-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border);
+        }
+        .activity-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+        .activity-sub { font-size: 11px; color: var(--muted); }
+        .activity-body { padding: 8px 12px; }
+        .activity-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px; border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .activity-row:hover { background: var(--surface-hover); }
+        .act-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .act-dot.ok { background: var(--success); }
+        .act-dot.error { background: var(--accent3); }
+        .act-action { font-size: 13px; font-weight: 500; min-width: 140px; }
+        .act-detail { font-size: 12px; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .act-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+
+        /* ── Admin Quick Access ── */
+        .admin-quick {
+            display: flex; align-items: center; gap: 16px;
+            background: rgba(255,101,132,0.06);
+            border: 1px solid rgba(255,101,132,0.2);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-top: 20px;
+        }
+        .admin-quick-icon { font-size: 28px; flex-shrink: 0; }
+        .admin-quick-text { flex: 1; }
+        .admin-quick-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--accent3); margin-bottom: 3px; }
+        .admin-quick-sub { font-size: 12px; color: var(--muted); }
+        .admin-quick-btn {
+            display: inline-flex; align-items: center;
+            padding: 10px 20px;
+            background: rgba(255,101,132,0.15);
+            border: 1px solid rgba(255,101,132,0.35);
+            border-radius: 50px;
+            color: var(--accent3);
+            text-decoration: none;
+            font-size: 13px; font-weight: 600;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .admin-quick-btn:hover { background: rgba(255,101,132,0.25); transform: translateX(3px); }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">🎙️</div>
+            <span class="brand-name">VoiceMail AI</span>
+        </div>
+
+        <div class="user-card">
+            <div class="avatar">👤</div>
+            <div class="user-info">
+                <div class="name">{{ session['user'] }}</div>
+                <div class="email">{{ session['email'] }}</div>
+            </div>
+        </div>
+
+        <nav>
+            <a href="#" class="nav-item active">
+                <span class="icon">⚡</span> Dashboard
+            </a>
+            <a href="/profile" class="nav-item">
+                <span class="icon">👤</span> Profile
+            </a>
+            <a href="/unified_inbox" class="nav-item">
+                <span class="icon">📬</span> Unified Inbox
+            </a>
+            {% if session.get('role') == 'admin' %}
+            <a href="/admin" class="nav-item" style="color:#ff6584; border-color:rgba(255,101,132,0.25); background:rgba(255,101,132,0.07);">
+                <span class="icon">🛡️</span> Admin Panel
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="nav-bottom">
+            <a href="/logout" class="logout-btn">
+                <span class="icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- ── Main ── -->
+    <main class="main">
+        <header class="topbar">
+            <h1 class="page-title">Dashboard</h1>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                System Online
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- Stats -->
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-icon purple">📬</div>
+                    <div>
+                        <div class="stat-label">Emails Read</div>
+                        <div class="stat-value">{{ stats.emails_read }}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon cyan">🎙️</div>
+                    <div>
+                        <div class="stat-label">Commands</div>
+                        <div class="stat-value">{{ stats.commands }}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon pink">⚡</div>
+                    <div>
+                        <div class="stat-label">Sessions</div>
+                        <div class="stat-value">{{ stats.sessions }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Card -->
+            <div class="voice-card">
+                <h2 class="voice-card-title">Voice Command Center</h2>
+                <p class="voice-card-sub">Click the button below and speak your command</p>
+
+                <div class="mic-visualizer" id="visualizer">
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-start" onclick="startVoice()">
+                        🎙 Start Voice Command
+                    </button>
+                    <button class="btn-stop" onclick="stopVoice()">
+                        ⛔ Stop
+                    </button>
+                </div>
+
+                <div id="result"></div>
+            </div>
+
+            <!-- Recent Activity Log (own activity) -->
+            <div class="activity-panel">
+                <div class="activity-header">
+                    <span class="activity-title">📋 Recent Activity</span>
+                    <span class="activity-sub">Your last 5 actions</span>
+                </div>
+                <div class="activity-body">
+                    {% if recent_logs %}
+                        {% for log in recent_logs %}
+                        <div class="activity-row">
+                            <span class="act-dot {% if log[3] == 'error' %}error{% else %}ok{% endif %}"></span>
+                            <span class="act-action">{{ log[1] | replace('_', ' ') | title }}</span>
+                            <span class="act-detail">{{ log[2] if log[2] else '' }}</span>
+                            <span class="act-time">{{ log[4][:16] if log[4] else '' }}</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="color:var(--muted);font-size:13px;padding:12px 0;">No activity yet. Try a voice command!</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if session.get('role') == 'admin' %}
+            <!-- Admin Quick Access -->
+            <div class="admin-quick">
+                <div class="admin-quick-icon">🛡️</div>
+                <div class="admin-quick-text">
+                    <div class="admin-quick-title">Admin Monitoring Panel</div>
+                    <div class="admin-quick-sub">View all users, API usage, system logs and manage roles</div>
+                </div>
+                <a href="/admin" class="admin-quick-btn">Open Panel →</a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<script>
+    function setVisualizer(active) {
+        document.querySelectorAll('.bar').forEach(b => {
+            b.classList.toggle('active', active);
+        });
+    }
+
+    function startVoice() {
+        setVisualizer(true);
+        document.getElementById("result").innerHTML =
+            "<div class='alert-info'>🎧 Listening for your command...</div>";
+
+        fetch("/voice", { method: "POST" })
+        .then(r => r.json())
+        .then(data => {
+            setVisualizer(false);
+            if (data.emails) {
+                let out = "<h5 style='font-family:Syne,sans-serif;margin-bottom:8px;'>📨 Emails Found</h5>";
+                data.emails.forEach(e => {
+                    out += `
+                    <div class="email-card">
+                        <strong>Email ${e.email_number}</strong>
+                        <div class="email-subject">${e.subject}</div>
+                        <div class="email-summary">${e.summary}</div>
+                    </div>`;
+                });
+                document.getElementById("result").innerHTML = out;
+            } else {
+                document.getElementById("result").innerHTML =
+                    `<div class='alert-info'>
+                        <b>You said:</b> ${data.command}<br>
+                        <b>Response:</b> ${data.response}
+                    </div>`;
+            }
+        })
+        .catch(() => {
+            setVisualizer(false);
+            document.getElementById("result").innerHTML =
+                "<div class='alert-danger'>Connection error. Please try again.</div>";
+        });
+    }
+
+    function stopVoice() {
+        setVisualizer(false);
+        fetch("/stop", { method: "POST" })
+        .then(r => r.json())
+        .then(() => {
+            document.getElementById("result").innerHTML =
+                "<div class='alert-danger'>⛔ Voice command stopped.</div>";
+        });
+    }
+</script>
+</body>
+</html>

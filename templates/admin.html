@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Admin Dashboard — VoiceMail AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --void: #07071a;
+            --sidebar-bg: #0d0d26;
+            --main-bg: #0b0b1f;
+            --surface: rgba(255,255,255,0.04);
+            --surface-hover: rgba(255,255,255,0.07);
+            --border: rgba(255,255,255,0.08);
+            --accent1: #6c63ff;
+            --accent2: #00d4ff;
+            --accent3: #ff6584;
+            --accent4: #00e5a0;
+            --text: #e8e8f2;
+            --muted: rgba(232,232,242,0.45);
+        }
+
+        html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--void); color: var(--text); }
+        .app { display: flex; min-height: 100vh; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 32px 20px;
+            flex-shrink: 0;
+            position: sticky; top: 0; height: 100vh;
+            overflow: hidden;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -100px; left: -100px;
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+        .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent1), var(--accent2)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 16px rgba(108,99,255,0.4); }
+        .brand-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; background: linear-gradient(135deg, #fff, var(--accent2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+
+        .admin-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: rgba(255,101,132,0.15); border: 1px solid rgba(255,101,132,0.35); border-radius: 50px; color: var(--accent3); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+
+        nav { flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s; margin-bottom: 4px; }
+        .nav-item:hover { background: var(--surface-hover); color: var(--text); }
+        .nav-item.active { background: rgba(108,99,255,0.15); color: var(--text); border: 1px solid rgba(108,99,255,0.25); }
+        .icon { font-size: 16px; }
+        .nav-bottom { margin-top: auto; }
+        .logout-btn { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; color: rgba(255,101,132,0.7); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .logout-btn:hover { background: rgba(255,101,132,0.08); color: var(--accent3); }
+
+        /* ── Main ── */
+        .main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 24px 36px; border-bottom: 1px solid var(--border); background: rgba(13,13,38,0.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
+        .page-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+        .page-title span { background: linear-gradient(135deg, var(--accent3), var(--accent1)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+        .status-badge { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(255,101,132,0.08); border: 1px solid rgba(255,101,132,0.2); border-radius: 50px; font-size: 13px; color: var(--accent3); }
+        .status-dot { width: 8px; height: 8px; background: var(--accent3); border-radius: 50%; animation: pulse 2s infinite; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+        .content { padding: 36px; }
+
+        /* ── Stats Grid ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px 20px;
+            display: flex; align-items: center; gap: 16px;
+            transition: transform 0.2s, border-color 0.2s;
+            animation: fadeInUp 0.4s ease both;
+        }
+        .stat-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.14); }
+        .stat-card:nth-child(1) { animation-delay: 0.05s; }
+        .stat-card:nth-child(2) { animation-delay: 0.1s; }
+        .stat-card:nth-child(3) { animation-delay: 0.15s; }
+        .stat-card:nth-child(4) { animation-delay: 0.2s; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .stat-icon.purple { background: rgba(108,99,255,0.18); }
+        .stat-icon.cyan { background: rgba(0,212,255,0.18); }
+        .stat-icon.pink { background: rgba(255,101,132,0.18); }
+        .stat-icon.green { background: rgba(0,229,160,0.18); }
+        .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; }
+
+        /* ── Sections ── */
+        .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            animation: fadeInUp 0.5s ease both;
+        }
+        .panel-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .panel-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
+        .panel-body { padding: 16px; max-height: 320px; overflow-y: auto; }
+
+        /* ── Logs Table ── */
+        .log-entry { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 10px; margin-bottom: 6px; transition: background 0.15s; }
+        .log-entry:hover { background: var(--surface-hover); }
+        .log-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+        .log-dot.success { background: var(--accent4); }
+        .log-dot.error { background: var(--accent3); }
+        .log-dot.warning { background: #ffc847; }
+        .log-info { flex: 1; min-width: 0; }
+        .log-action { font-size: 13px; font-weight: 500; }
+        .log-detail { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .log-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+        /* ── Users Table ── */
+        .users-table { width: 100%; border-collapse: collapse; }
+        .users-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        .users-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .users-table tr:last-child td { border-bottom: none; }
+        .role-badge { display: inline-flex; padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+        .role-badge.admin { background: rgba(255,101,132,0.15); color: var(--accent3); border: 1px solid rgba(255,101,132,0.3); }
+        .role-badge.user { background: rgba(108,99,255,0.12); color: #a09cff; border: 1px solid rgba(108,99,255,0.25); }
+        .action-btn { padding: 4px 12px; border-radius: 50px; border: none; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; }
+        .btn-promote { background: rgba(0,229,160,0.15); color: var(--accent4); border: 1px solid rgba(0,229,160,0.3); }
+        .btn-promote:hover { background: rgba(0,229,160,0.25); }
+        .btn-demote { background: rgba(255,101,132,0.12); color: var(--accent3); border: 1px solid rgba(255,101,132,0.25); }
+        .btn-demote:hover { background: rgba(255,101,132,0.22); }
+
+        /* ── API Chart ── */
+        .api-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .api-row:last-child { border-bottom: none; }
+        .api-name { font-size: 13px; width: 130px; flex-shrink: 0; }
+        .api-bar-wrap { flex: 1; background: rgba(255,255,255,0.06); border-radius: 50px; height: 8px; overflow: hidden; }
+        .api-bar { height: 100%; border-radius: 50px; background: linear-gradient(90deg, var(--accent1), var(--accent2)); transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .api-count { font-size: 13px; color: var(--muted); width: 30px; text-align: right; flex-shrink: 0; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: #13132f;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 14px;
+            z-index: 999;
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { border-color: rgba(0,229,160,0.3); color: var(--accent4); }
+        .toast.error { border-color: rgba(255,101,132,0.3); color: var(--accent3); }
+
+        .full-panel { animation-delay: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">🎙️</div>
+            <span class="brand-name">VoiceMail AI</span>
+        </div>
+
+        <div class="admin-badge">🛡️ Admin Panel</div>
+
+        <nav>
+            <a href="/dashboard" class="nav-item">
+                <span class="icon">⚡</span> Dashboard
+            </a>
+            <a href="/admin" class="nav-item active">
+                <span class="icon">🛡️</span> Admin Monitor
+            </a>
+            <a href="/profile" class="nav-item">
+                <span class="icon">👤</span> Profile
+            </a>
+            <a href="/unified_inbox" class="nav-item">
+                <span class="icon">📬</span> Unified Inbox
+            </a>
+        </nav>
+
+        <div class="nav-bottom">
+            <a href="/logout" class="logout-btn">
+                <span class="icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- ── Main ── -->
+    <main class="main">
+        <header class="topbar">
+            <h1 class="page-title">Admin <span>Monitoring</span> Dashboard</h1>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                Live Monitoring
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- ── Stats ── -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon purple">👥</div>
+                    <div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value">{{ stats.total_users }}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon cyan">⚡</div>
+                    <div>
+                        <div class="stat-label">Active Today</div>
+                        <div class="stat-value">{{ stats.active_today }}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">📡</div>
+                    <div>
+                        <div class="stat-label">API Calls</div>
+                        <div class="stat-value">{{ stats.total_api_calls }}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon pink">⚠️</div>
+                    <div>
+                        <div class="stat-label">Errors</div>
+                        <div class="stat-value">{{ stats.total_errors }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Middle Row: Logs + API Usage ── -->
+            <div class="section-grid">
+                <!-- Activity Logs -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📋 Activity Logs</span>
+                        <span style="font-size:12px;color:var(--muted);">Last 50 events</span>
+                    </div>
+                    <div class="panel-body">
+                        {% if stats.logs %}
+                            {% for log in stats.logs %}
+                            <div class="log-entry">
+                                <div class="log-dot {{ log[3] }}"></div>
+                                <div class="log-info">
+                                    <div class="log-action">{{ log[1] | replace('_', ' ') | title }}</div>
+                                    <div class="log-detail">{{ log[0] }} — {{ log[2] if log[2] else '—' }}</div>
+                                </div>
+                                <div class="log-time">{{ log[4][:16] if log[4] else '' }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">No logs yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- API Usage -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📡 API Usage</span>
+                        <span style="font-size:12px;color:var(--muted);">By type</span>
+                    </div>
+                    <div class="panel-body" id="apiChart">
+                        {% if stats.api_breakdown %}
+                            {% set max_count = stats.api_breakdown[0][1] %}
+                            {% for api in stats.api_breakdown %}
+                            <div class="api-row">
+                                <div class="api-name">{{ api[0] | replace('_', ' ') }}</div>
+                                <div class="api-bar-wrap">
+                                    <div class="api-bar" data-width="{{ (api[1] / max_count * 100) | int }}"></div>
+                                </div>
+                                <div class="api-count">{{ api[1] }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">No API calls yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Users Table ── -->
+            <div class="panel full-panel">
+                <div class="panel-header">
+                    <span class="panel-title">👥 Registered Users & Role Management</span>
+                    <span style="font-size:12px;color:var(--muted);">RBAC — Role-Based Access Control</span>
+                </div>
+                <div class="panel-body" style="max-height:none; padding: 0;">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if stats.users %}
+                                {% for u in stats.users %}
+                                <tr id="user-row-{{ loop.index }}">
+                                    <td style="color:var(--muted)">{{ u[0] }}</td>
+                                    <td>{{ u[1] or '—' }}</td>
+                                    <td style="color:var(--muted)">{{ u[2] }}</td>
+                                    <td>
+                                        <span class="role-badge {{ u[3] or 'user' }}" id="role-badge-{{ loop.index }}">
+                                            {{ u[3] or 'user' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if u[3] == 'admin' %}
+                                        <button class="action-btn btn-demote"
+                                            data-email="{{ u[2] }}"
+                                            data-action="revoke"
+                                            data-idx="{{ loop.index }}"
+                                            onclick="changeRoleFromBtn(this)">
+                                            Revoke Admin
+                                        </button>
+                                        {% else %}
+                                        <button class="action-btn btn-promote"
+                                            data-email="{{ u[2] }}"
+                                            data-action="grant"
+                                            data-idx="{{ loop.index }}"
+                                            onclick="changeRoleFromBtn(this)">
+                                            Make Admin
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No users registered yet.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // Animate API bars using data-width attribute (avoids Jinja in style attribute)
+    document.querySelectorAll('.api-bar[data-width]').forEach(function(bar) {
+        bar.style.width = bar.getAttribute('data-width') + '%';
+    });
+
+    function showToast(msg, type) {
+        type = type || 'success';
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast ' + type + ' show';
+        setTimeout(function() { t.classList.remove('show'); }, 3000);
+    }
+
+    function changeRoleFromBtn(btn) {
+        var email = btn.getAttribute('data-email');
+        var action = btn.getAttribute('data-action');
+        var idx = btn.getAttribute('data-idx');
+        changeRole(email, action, idx, btn);
+    }
+
+    function changeRole(email, action, idx, btn) {
+        var endpoint = action === 'grant' ? '/admin/make_admin' : '/admin/revoke_admin';
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var badge = document.getElementById('role-badge-' + idx);
+                if (action === 'grant') {
+                    badge.textContent = 'admin';
+                    badge.className = 'role-badge admin';
+                    btn.textContent = 'Revoke Admin';
+                    btn.className = 'action-btn btn-demote';
+                    btn.setAttribute('data-action', 'revoke');
+                } else {
+                    badge.textContent = 'user';
+                    badge.className = 'role-badge user';
+                    btn.textContent = 'Make Admin';
+                    btn.className = 'action-btn btn-promote';
+                    btn.setAttribute('data-action', 'grant');
+                }
+                showToast(action === 'grant' ? '✅ Admin granted to ' + email : '🔄 Admin revoked from ' + email);
+            } else {
+                showToast('❌ Error: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(function() { showToast('❌ Network error', 'error'); });
+    }
+</script>
+</body>
+</html>

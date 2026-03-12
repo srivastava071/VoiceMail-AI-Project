@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Unified Inbox — VoiceMail AI</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+:root{
+--void:#07071a;
+--sidebar-bg:#0d0d26;
+--main-bg:#0b0b1f;
+--surface:rgba(255,255,255,0.04);
+--surface-hover:rgba(255,255,255,0.07);
+--border:rgba(255,255,255,0.08);
+--accent1:#6c63ff;
+--accent2:#00d4ff;
+--accent3:#ff6584;
+--text:#e8e8f2;
+--muted:rgba(232,232,242,0.45);
+--success:#00e5a0;
+}
+
+html,body{
+height:100%;
+font-family:'DM Sans',sans-serif;
+background:var(--void);
+color:var(--text);
+overflow:hidden;
+}
+
+/* Layout */
+
+.app{
+display:flex;
+height:100vh;
+}
+
+/* Sidebar */
+
+.sidebar{
+width:260px;
+background:var(--sidebar-bg);
+border-right:1px solid var(--border);
+display:flex;
+flex-direction:column;
+padding:32px 20px;
+}
+
+.brand{
+display:flex;
+align-items:center;
+gap:12px;
+margin-bottom:36px;
+padding-bottom:24px;
+border-bottom:1px solid var(--border);
+}
+
+.brand-icon{
+width:40px;
+height:40px;
+background:linear-gradient(135deg,var(--accent1),var(--accent2));
+border-radius:12px;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.brand-name{
+font-family:'Syne',sans-serif;
+font-weight:700;
+}
+
+/* User Card */
+
+.user-card{
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:14px;
+padding:14px 16px;
+margin-bottom:32px;
+display:flex;
+align-items:center;
+gap:12px;
+}
+
+.avatar{
+width:38px;
+height:38px;
+border-radius:50%;
+background:linear-gradient(135deg,var(--accent1),var(--accent3));
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.user-info .name{
+font-size:14px;
+font-weight:500;
+}
+
+.user-info .email{
+font-size:11px;
+color:var(--muted);
+word-break:break-all;
+overflow-wrap:break-word;
+white-space:normal;
+max-width:180px;
+}
+
+/* Nav */
+
+nav{
+flex:1;
+display:flex;
+flex-direction:column;
+gap:4px;
+}
+
+.nav-item{
+display:flex;
+align-items:center;
+gap:12px;
+padding:11px 14px;
+border-radius:12px;
+text-decoration:none;
+color:var(--muted);
+font-size:14px;
+transition:0.2s;
+}
+
+.nav-item:hover{
+background:var(--surface-hover);
+color:var(--text);
+}
+
+.nav-item.active{
+background:rgba(108,99,255,0.15);
+border:1px solid rgba(108,99,255,0.3);
+color:#fff;
+}
+
+.nav-bottom{
+margin-top:auto;
+}
+
+.logout-btn{
+display:flex;
+align-items:center;
+gap:12px;
+padding:11px 14px;
+border-radius:12px;
+text-decoration:none;
+color:var(--accent3);
+}
+
+/* Main */
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+background:var(--main-bg);
+overflow-y:auto;
+}
+
+/* Topbar */
+
+.topbar{
+padding:24px 40px;
+border-bottom:1px solid var(--border);
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.page-title{
+font-family:'Syne',sans-serif;
+font-size:22px;
+font-weight:700;
+}
+
+.status-badge{
+display:flex;
+align-items:center;
+gap:8px;
+background:rgba(0,229,160,0.1);
+border:1px solid rgba(0,229,160,0.25);
+border-radius:20px;
+padding:6px 14px;
+font-size:12px;
+color:var(--success);
+}
+
+.status-dot{
+width:7px;
+height:7px;
+border-radius:50%;
+background:var(--success);
+animation:blink 2s infinite;
+}
+
+@keyframes blink{
+0%,100%{opacity:1}
+50%{opacity:0.3}
+}
+
+/* Content */
+
+.content{
+padding:40px;
+}
+
+/* Message Cards */
+
+.message-card{
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:16px;
+padding:20px;
+margin-bottom:16px;
+}
+
+.message-header{
+display:flex;
+justify-content:space-between;
+font-size:13px;
+color:var(--muted);
+margin-bottom:8px;
+}
+
+.message-body{
+font-size:14px;
+line-height:1.6;
+}
+
+.direction{
+font-size:11px;
+opacity:0.6;
+margin-top:10px;
+}
+
+.platform-tag{
+font-size:11px;
+text-transform:uppercase;
+letter-spacing:1px;
+margin-bottom:6px;
+font-weight:600;
+}
+
+.platform-gmail{color:var(--accent1);}
+.platform-whatsapp{color:#25D366;}
+.platform-telegram{color:#2AABEE;}
+
+.empty{
+background:var(--surface);
+border:1px solid var(--border);
+padding:30px;
+border-radius:16px;
+text-align:center;
+color:var(--muted);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- Sidebar -->
+
+<aside class="sidebar">
+
+<div class="brand">
+<div class="brand-icon">🎙️</div>
+<div class="brand-name">VoiceMail AI</div>
+</div>
+
+<div class="user-card">
+<div class="avatar">👤</div>
+<div class="user-info">
+<div class="name">{{ session['user'] }}</div>
+<div class="email">{{ session['email'] }}</div>
+</div>
+</div>
+
+<nav>
+<a href="/dashboard" class="nav-item">⚡ Dashboard</a>
+<a href="/profile" class="nav-item">👤 Profile</a>
+<a href="/unified_inbox" class="nav-item active">📬 Unified Inbox</a>
+</nav>
+
+<div class="nav-bottom">
+<a href="/logout" class="logout-btn">🚪 Logout</a>
+</div>
+
+</aside>
+
+<!-- Main -->
+
+<main class="main">
+
+<header class="topbar">
+<h1 class="page-title">Unified Inbox</h1>
+
+<div class="status-badge">
+<span class="status-dot"></span>
+System Online
+</div>
+</header>
+
+<div class="content">
+
+{% if messages %}
+
+{% for msg in messages %}
+
+<div class="message-card">
+
+<div class="platform-tag
+{% if msg[0]=='gmail' %}platform-gmail{% endif %}
+{% if msg[0]=='whatsapp' %}platform-whatsapp{% endif %}
+{% if msg[0]=='telegram' %}platform-telegram{% endif %}
+">
+
+{{ msg[0]|upper }}
+
+</div>
+
+<div class="message-header">
+<div><strong>{{ msg[1] }}</strong> → {{ msg[2] }}</div>
+<div>{{ msg[5] }}</div>
+</div>
+
+<div class="message-body">
+{{ msg[3] }}
+</div>
+
+<div class="direction">
+{{ msg[4] }}
+</div>
+
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<div class="empty">
+📭 No messages yet in Unified Inbox.
+</div>
+
+{% endif %}
+
+</div>
+
+</main>
+
+</div>
+
+</body>
+</html>

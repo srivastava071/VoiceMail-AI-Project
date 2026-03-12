@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Access Denied</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #07071a;
+            color: #e8e8f2;
+            font-family: 'DM Sans', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container { max-width: 400px; padding: 40px; }
+        .icon { font-size: 64px; margin-bottom: 20px; }
+        h1 { font-family: 'Syne', sans-serif; font-size: 32px; color: #ff6584; margin-bottom: 12px; }
+        p { color: rgba(232,232,242,0.6); margin-bottom: 28px; line-height: 1.6; }
+        a {
+            display: inline-block;
+            padding: 12px 28px;
+            background: rgba(108,99,255,0.15);
+            border: 1px solid rgba(108,99,255,0.4);
+            border-radius: 50px;
+            color: #6c63ff;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        a:hover { background: rgba(108,99,255,0.25); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔒</div>
+        <h1>Access Denied</h1>
+        <p>You don't have permission to view this page. Only administrators can access the Admin Dashboard.</p>
+        <a href="/dashboard">← Go Back to Dashboard</a>
+    </div>
+</body>
+</html>

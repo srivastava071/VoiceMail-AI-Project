@@ -1,0 +1,10 @@
+Flask
+Authlib
+python-dotenv
+requests
+twilio
+SpeechRecognition
+sounddevice
+scipy
+numpy
+pydub

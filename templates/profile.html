@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Profile — Voice Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --void: #07071a;
+            --sidebar-bg: #0d0d26;
+            --main-bg: #0b0b1f;
+            --surface: rgba(255,255,255,0.04);
+            --surface-hover: rgba(255,255,255,0.07);
+            --border: rgba(255,255,255,0.08);
+            --accent1: #6c63ff;
+            --accent2: #00d4ff;
+            --accent3: #ff6584;
+            --text: #e8e8f2;
+            --muted: rgba(232,232,242,0.45);
+            --success: #00e5a0;
+        }
+
+        html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--void); color: var(--text); overflow: hidden; }
+
+        .app { display: flex; height: 100vh; }
+
+        /* ── Sidebar (same as dashboard) ── */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            padding: 32px 20px; flex-shrink: 0;
+            position: relative; overflow: hidden;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute; top: -100px; left: -100px;
+            width: 300px; height: 300px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 36px; padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--accent1), var(--accent2));
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+        }
+        .brand-name {
+            font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px;
+            background: linear-gradient(135deg, #fff, var(--accent2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .user-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 14px 16px; margin-bottom: 32px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent1), var(--accent3));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .user-info .name { font-size: 14px; font-weight: 500; }
+        .user-info .email {
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 180px;
+}
+        nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 12px;
+            text-decoration: none; color: var(--muted);
+            font-size: 14px; font-weight: 500;
+            transition: all 0.2s; border: 1px solid transparent;
+        }
+        .nav-item:hover { background: var(--surface-hover); color: var(--text); }
+        .nav-item.active {
+            background: rgba(108,99,255,0.15);
+            border-color: rgba(108,99,255,0.3); color: #fff;
+        }
+        .nav-item .icon { font-size: 16px; }
+        .nav-bottom { margin-top: auto; }
+        .logout-btn {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 12px;
+            text-decoration: none; color: var(--accent3);
+            font-size: 14px; font-weight: 500; transition: background 0.2s;
+        }
+        .logout-btn:hover { background: rgba(255,101,132,0.1); }
+
+        /* ── Main ── */
+        .main {
+            flex: 1; display: flex; flex-direction: column;
+            background: var(--main-bg); overflow-y: auto; position: relative;
+        }
+        .main::before {
+            content: '';
+            position: absolute; top: 0; right: 0;
+            width: 600px; height: 400px;
+            background: radial-gradient(ellipse at top right, rgba(0,212,255,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .topbar {
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+        }
+        .back-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; border-radius: 10px;
+            background: var(--surface); border: 1px solid var(--border);
+            text-decoration: none; color: var(--muted);
+            font-size: 18px; transition: all 0.2s;
+        }
+        .back-btn:hover { background: var(--surface-hover); color: var(--text); }
+        .page-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; }
+
+        .content { padding: 40px; flex: 1; max-width: 760px; }
+
+        /* Profile header */
+        .profile-header {
+            display: flex; align-items: center; gap: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px; padding: 28px 30px;
+            margin-bottom: 28px; position: relative; overflow: hidden;
+        }
+        .profile-header::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3));
+        }
+        .profile-avatar {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent1), var(--accent3));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; flex-shrink: 0;
+            box-shadow: 0 8px 24px rgba(108,99,255,0.35);
+        }
+        .profile-name { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .profile-email { font-size: 13px; color: var(--muted); }
+        .profile-badge {
+            margin-left: auto;
+            background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.25);
+            border-radius: 20px; padding: 6px 14px;
+            font-size: 12px; color: var(--success);
+        }
+
+        /* Prefs card */
+        .prefs-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px; padding: 32px 30px;
+        }
+        .prefs-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 16px; font-weight: 700; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .prefs-title::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
+        }
+
+        .form-group { margin-bottom: 22px; }
+        .form-label {
+            display: block; font-size: 12px; font-weight: 500;
+            color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        /* Custom select */
+        .select-wrap { position: relative; }
+        .select-wrap::after {
+            content: '▾'; position: absolute; right: 16px; top: 50%;
+            transform: translateY(-50%); color: var(--muted);
+            pointer-events: none; font-size: 14px;
+        }
+        .form-select {
+            width: 100%; padding: 12px 16px; padding-right: 40px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border); border-radius: 12px;
+            color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+            appearance: none; cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .form-select:focus {
+            border-color: rgba(108,99,255,0.5);
+            box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+        }
+        .form-select option { background: #1a1a3e; }
+
+        /* Toggle cards for theme */
+        .theme-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .theme-option {
+            border: 2px solid var(--border); border-radius: 14px;
+            padding: 16px 18px; cursor: pointer;
+            transition: all 0.2s; position: relative;
+        }
+        .theme-option:has(input:checked) {
+            border-color: var(--accent1);
+            background: rgba(108,99,255,0.1);
+        }
+        .theme-option input { position: absolute; opacity: 0; }
+        .theme-option-inner { display: flex; align-items: center; gap: 12px; }
+        .theme-preview {
+            width: 36px; height: 36px; border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .theme-preview.light { background: linear-gradient(135deg, #f0f0f0, #ffffff); border: 1px solid #ddd; }
+        .theme-preview.dark  { background: linear-gradient(135deg, #1a1a2e, #0d0d26); border: 1px solid #333; }
+        .theme-name { font-size: 14px; font-weight: 500; }
+        .theme-desc { font-size: 11px; color: var(--muted); }
+        .theme-check {
+            position: absolute; top: 10px; right: 10px;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: var(--accent1); display: none;
+            align-items: center; justify-content: center;
+            font-size: 10px;
+        }
+        .theme-option:has(input:checked) .theme-check { display: flex; }
+
+        /* Save button */
+        .btn-save {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 13px 28px;
+            background: linear-gradient(135deg, var(--accent1), var(--accent2));
+            border: none; border-radius: 50px;
+            color: #fff; font-family: 'DM Sans', sans-serif;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 6px 24px rgba(108,99,255,0.4);
+        }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(108,99,255,0.5); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">🎙️</div>
+            <span class="brand-name">VoiceMail AI</span>
+        </div>
+        <div class="user-card">
+            <div class="avatar">👤</div>
+            <div class="user-info">
+                <div class="name">{{ session['user'] }}</div>
+                <div class="email">{{ session['email'] }}</div>
+            </div>
+        </div>
+        <nav>
+            <a href="/dashboard" class="nav-item">
+                <span class="icon">⚡</span> Dashboard
+            </a>
+            <a href="/profile" class="nav-item active">
+                <span class="icon">👤</span> Profile
+            </a>
+            <a href="/unified_inbox" class="nav-item">
+                <span class="icon">📬</span> Unified Inbox
+            </a>
+        </nav>
+        <div class="nav-bottom">
+            <a href="/logout" class="logout-btn">
+                <span class="icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+        <header class="topbar">
+            <a href="/dashboard" class="back-btn">←</a>
+            <h1 class="page-title">My Profile</h1>
+        </header>
+
+        <div class="content">
+            <!-- Profile header -->
+            <div class="profile-header">
+                <div class="profile-avatar">👤</div>
+                <div>
+                    <div class="profile-name">{{ session['user'] }}</div>
+                    <div class="profile-email">{{ session['email'] }}</div>
+                </div>
+                <div class="profile-badge">✓ Verified</div>
+            </div>
+
+            <!-- Preferences -->
+            <div class="prefs-card">
+                <div class="prefs-title">⚙️ Preferences</div>
+
+                <form method="POST" action="/profile">
+
+                    <div class="form-group">
+                        <label class="form-label">Language</label>
+                        <div class="select-wrap">
+                            <select name="language" class="form-select">
+                                <option value="en-IN" {% if language == "en-IN" %}selected{% endif %}>🇬🇧 English (India)</option>
+                                <option value="hi-IN" {% if language == "hi-IN" %}selected{% endif %}>🇮🇳 Hindi (India)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Theme</label>
+                        <div class="theme-options">
+                            <label class="theme-option">
+                                <input type="radio" name="theme" value="light" {% if theme == "light" %}checked{% endif %}>
+                                <div class="theme-option-inner">
+                                    <div class="theme-preview light"></div>
+                                    <div>
+                                        <div class="theme-name">Light</div>
+                                        <div class="theme-desc">Clean & bright</div>
+                                    </div>
+                                </div>
+                                <div class="theme-check">✓</div>
+                            </label>
+                            <label class="theme-option">
+                                <input type="radio" name="theme" value="dark" {% if theme == "dark" %}checked{% endif %}>
+                                <div class="theme-option-inner">
+                                    <div class="theme-preview dark"></div>
+                                    <div>
+                                        <div class="theme-name">Dark</div>
+                                        <div class="theme-desc">Easy on eyes</div>
+                                    </div>
+                                </div>
+                                <div class="theme-check">✓</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-save">
+                        💾 Save Preferences
+                    </button>
+
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>
