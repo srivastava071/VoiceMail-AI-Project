@@ -41,8 +41,8 @@ def home():
 
 @app.route("/login")
 def login():
-    return google.authorize_redirect(request.url_root + "auth")
-
+    redirect_uri = request.url_root.replace("http://", "https://") + "auth"
+    return google.authorize_redirect(redirect_uri)
 
 @app.route("/auth")
 def auth():
