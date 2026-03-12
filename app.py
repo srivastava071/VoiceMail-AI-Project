@@ -41,7 +41,7 @@ def home():
 
 @app.route("/login")
 def login():
-    return google.authorize_redirect("http://127.0.0.1:5000/auth")
+    return google.authorize_redirect(request.url_root + "auth")
 
 
 @app.route("/auth")
