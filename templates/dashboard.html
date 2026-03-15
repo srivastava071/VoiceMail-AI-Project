@@ -292,6 +292,54 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+        /* ── Live Transcript Box (inside voice card) ── */
+        .transcript-box {
+            margin-top: 24px;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            text-align: left;
+        }
+        .transcript-box-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: var(--muted);
+        }
+        .transcript-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--muted); display: inline-block; margin-right: 6px;
+        }
+        .transcript-dot.on { background: var(--accent1); animation: blink 1s infinite; }
+        .transcript-scroll {
+            height: 180px;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        /* Each line in transcript */
+        .tline {
+            display: flex; align-items: flex-start; gap: 10px;
+            animation: tslide 0.2s ease;
+        }
+        @keyframes tslide { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+        .tline-badge {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+            padding: 2px 8px; border-radius: 20px; flex-shrink: 0; margin-top: 2px;
+        }
+        .tline-badge.you  { background: rgba(108,99,255,0.2); color: #a09cff; border: 1px solid rgba(108,99,255,0.3); }
+        .tline-badge.bot  { background: rgba(0,212,255,0.12); color: var(--accent2); border: 1px solid rgba(0,212,255,0.25); }
+        .tline-badge.live { background: rgba(0,229,160,0.1);  color: var(--success); border: 1px solid rgba(0,229,160,0.25); }
+        .tline-text { font-size: 13px; line-height: 1.5; color: var(--text); flex: 1; }
+        .tline-text.interim { color: var(--muted); font-style: italic; }
+        .transcript-empty-msg {
+            color: var(--muted); font-size: 12px; text-align: center;
+            padding: 28px 0;
+        }
+
         /* ── Activity Panel ── */
         .activity-panel {
             background: var(--surface);
@@ -429,7 +477,7 @@
             <!-- Voice Card -->
             <div class="voice-card">
                 <h2 class="voice-card-title">Voice Command Center</h2>
-                <p class="voice-card-sub">Click the button below and speak your command</p>
+                <p class="voice-card-sub">Click Start, speak your command, then click Stop</p>
 
                 <div class="mic-visualizer" id="visualizer">
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
@@ -438,12 +486,32 @@
                 </div>
 
                 <div class="btn-row">
-                    <button class="btn-start" onclick="startVoice()">
-                        🎙 Start Voice Command
+                    <button class="btn-start" id="btnStart" onclick="startVoice()">
+                        🎙 Start Listening
                     </button>
                     <button class="btn-stop" onclick="stopVoice()">
-                        ⛔ Stop
+                        ⛔ End Session
                     </button>
+                </div>
+
+                <p style="font-size:12px;color:var(--muted);margin-top:8px;">
+                    Speak naturally — assistant replies automatically after you finish speaking
+                </p>
+
+                <!-- ── Live Transcript Box ── -->
+                <div class="transcript-box">
+                    <div class="transcript-box-header">
+                        <span>
+                            <span class="transcript-dot" id="tDot"></span>
+                            Live Transcript
+                        </span>
+                        <span id="tStatus" style="font-size:11px;">● Idle</span>
+                    </div>
+                    <div class="transcript-scroll" id="tScroll">
+                        <div class="transcript-empty-msg" id="tEmpty">
+                            Start voice command to see transcript here
+                        </div>
+                    </div>
                 </div>
 
                 <div id="result"></div>
@@ -487,87 +555,251 @@
 </div>
 
 <script>
-    function setVisualizer(active) {
-        document.querySelectorAll('.bar').forEach(b => {
-            b.classList.toggle('active', active);
-        });
-    }
+var LANG        = "{{ session.get('language', 'en-IN') }}";
+var recognition = null;
+var listening   = false;
+var interimLine = null;
+var finalText   = '';
 
-function startVoice() {
-
-    const greeting = "Welcome back {{ session['user'] }}. Please speak your command.";
-    const greetSpeech = new SpeechSynthesisUtterance(greeting);
-    greetSpeech.lang = "en-US";
-    window.speechSynthesis.speak(greetSpeech);
-
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-
-    recognition.lang = "en-US";
-    recognition.start();
-
-    setVisualizer(true);
-
-    document.getElementById("result").innerHTML =
-        "<div class='alert-info'>🎧 Listening...</div>";
-
-    recognition.onresult = function(event) {
-
-        const command = event.results[0][0].transcript;
-
-        fetch("/voice", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ command: command })
-        })
-        .then(r => r.json())
-        .then(data => {
-
-            setVisualizer(false);
-
-            if (data.emails) {
-
-                let out = "<h5>📨 Emails Found</h5>";
-
-                data.emails.forEach(e => {
-                    out += `
-                    <div class="email-card">
-                        <strong>Email ${e.email_number}</strong>
-                        <div class="email-subject">${e.subject}</div>
-                        <div class="email-summary">${e.summary}</div>
-                    </div>`;
-                });
-
-                document.getElementById("result").innerHTML = out;
-
-            } else {
-
-                document.getElementById("result").innerHTML =
-                `<div class='alert-info'>
-                <b>You said:</b> ${command}<br>
-                <b>Response:</b> ${data.response}
-                </div>`;
-
-                const responseSpeech = new SpeechSynthesisUtterance(data.response);
-                responseSpeech.lang = "en-US";
-                window.speechSynthesis.speak(responseSpeech);
-            }
-
-        });
-
-    };
+// ── Visualizer
+function setViz(on) {
+    document.querySelectorAll('.bar').forEach(function(b){ b.classList.toggle('active', on); });
 }
 
-    function stopVoice() {
-        setVisualizer(false);
-        fetch("/stop", { method: "POST" })
-        .then(r => r.json())
-        .then(() => {
-            document.getElementById("result").innerHTML =
-                "<div class='alert-danger'>⛔ Voice command stopped.</div>";
+// ── Dot + status text in transcript header
+function setDot(state) {
+    // state: 'idle' | 'listening' | 'processing'
+    var dot = document.getElementById('tDot');
+    var txt = document.getElementById('tStatus');
+    if (state === 'listening')  { dot.className = 'transcript-dot on';  txt.textContent = '🔴 Listening...'; }
+    if (state === 'processing') { dot.className = 'transcript-dot on';  txt.textContent = '⚙️ Processing...'; }
+    if (state === 'idle')       { dot.className = 'transcript-dot';     txt.textContent = '● Idle'; }
+}
+
+// ── Transcript helpers
+function hideEmpty() {
+    var e = document.getElementById('tEmpty');
+    if (e) e.style.display = 'none';
+}
+
+function scrollBottom() {
+    var s = document.getElementById('tScroll');
+    s.scrollTop = s.scrollHeight;
+}
+
+function esc(t) {
+    return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Add a permanent line (YOU or ASSISTANT)
+function addLine(who, text) {
+    hideEmpty();
+    var row = document.createElement('div');
+    row.className = 'tline';
+    var bc = who === 'you' ? 'you' : 'bot';
+    var lb = who === 'you' ? 'YOU' : 'ASSISTANT';
+    row.innerHTML = '<span class="tline-badge ' + bc + '">' + lb + '</span>' +
+                    '<span class="tline-text">' + esc(text) + '</span>';
+    document.getElementById('tScroll').appendChild(row);
+    scrollBottom();
+}
+
+// Live INTERIM line — updates word by word as you speak
+function setInterim(text) {
+    hideEmpty();
+    if (!interimLine) {
+        interimLine = document.createElement('div');
+        interimLine.className = 'tline';
+        interimLine.innerHTML = '<span class="tline-badge live">LIVE</span>' +
+                                '<span class="tline-text interim" id="iText"></span>';
+        document.getElementById('tScroll').appendChild(interimLine);
+    }
+    var el = document.getElementById('iText');
+    if (el) el.textContent = text;
+    scrollBottom();
+}
+
+function clearInterim() {
+    if (interimLine) { interimLine.remove(); interimLine = null; }
+    var el = document.getElementById('iText');
+    if (el) el.textContent = '';
+}
+
+// ── Send finalised text to Flask → get reply → show in transcript
+function sendToFlask(cmd) {
+    if (!cmd) return;
+    setDot('processing');
+    setViz(false);
+    clearInterim();
+    addLine('you', cmd);
+
+    // Show "Processing..." line
+    var proc = document.createElement('div');
+    proc.className = 'tline'; proc.id = 'procLine';
+    proc.innerHTML = '<span class="tline-badge bot">ASSISTANT</span>' +
+                     '<span class="tline-text interim">Processing...</span>';
+    document.getElementById('tScroll').appendChild(proc);
+    scrollBottom();
+
+    fetch('/voice', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({command: cmd})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        var pl = document.getElementById('procLine');
+        if (pl) pl.remove();
+        setDot('idle');
+
+        var reply = '';
+        if (data.emails) {
+            reply = 'Found ' + data.emails.length + ' email(s): ';
+            data.emails.forEach(function(e){ reply += e.subject + '. '; });
+            var out = "<h5 style='font-family:Syne,sans-serif;margin-bottom:8px;'>📨 Emails Found</h5>";
+            data.emails.forEach(function(e){
+                out += '<div class="email-card"><strong>Email ' + e.email_number + '</strong>' +
+                       '<div class="email-subject">' + e.subject + '</div>' +
+                       '<div class="email-summary">' + e.summary + '</div></div>';
+            });
+            document.getElementById('result').innerHTML = out;
+        } else {
+            reply = data.response || '';
+            document.getElementById('result').innerHTML =
+                "<div class='alert-info'><b>You said:</b> " + esc(data.command || cmd) +
+                "<br><b>Response:</b> " + esc(reply) + "</div>";
+        }
+        addLine('bot', reply);
+
+        // ── Auto-restart listening after reply so user can speak again
+        if (listening) {
+            setTimeout(function() {
+                finalText = ''; interimLine = null;
+                setDot('listening');
+                setViz(true);
+                try { recognition.start(); } catch(e){}
+            }, 800);
+        }
+    })
+    .catch(function() {
+        var pl = document.getElementById('procLine');
+        if (pl) pl.remove();
+        setDot('idle');
+        addLine('bot', 'Connection error. Please try again.');
+        document.getElementById('result').innerHTML =
+            "<div class='alert-danger'>Connection error. Please try again.</div>";
+    });
+}
+
+// ── Build SpeechRecognition with continuous=false so it auto-fires onend
+//    after user stops speaking (natural silence detection)
+function buildRecognition() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+
+    var r = new SR();
+    r.lang           = LANG;
+    r.continuous     = false;  // ← auto-stops after silence → triggers onend
+    r.interimResults = true;   // ← words appear live as you speak
+
+    r.onstart = function() {
+        setDot('listening');
+        setViz(true);
+    };
+
+    r.onresult = function(e) {
+        var interim = '';
+        finalText   = '';
+        for (var i = 0; i < e.results.length; i++) {
+            if (e.results[i].isFinal) {
+                finalText += e.results[i][0].transcript + ' ';
+            } else {
+                interim   += e.results[i][0].transcript;
+            }
+        }
+        // Show live words — confirmed + current partial word
+        setInterim((finalText.trim() ? finalText.trim() + ' ' : '') + interim);
+    };
+
+    // ── onend fires automatically when user stops speaking
+    r.onend = function() {
+        var cmd = finalText.trim();
+        if (cmd && listening) {
+            // User said something — process it
+            sendToFlask(cmd);
+        } else if (listening) {
+            // Silence / nothing heard — restart and keep waiting
+            setDot('listening');
+            setTimeout(function(){
+                try { r.start(); } catch(e){}
+            }, 300);
+        }
+    };
+
+    r.onerror = function(ev) {
+        if (ev.error === 'no-speech') {
+            // No speech heard — silently restart
+            if (listening) {
+                setTimeout(function(){ try { r.start(); } catch(e){} }, 300);
+            }
+            return;
+        }
+        console.warn('SR error:', ev.error);
+    };
+
+    return r;
+}
+
+// ── Start button — begin listening session
+function startVoice() {
+    if (listening) return;
+    listening   = true;
+    finalText   = '';
+    interimLine = null;
+
+    document.getElementById('result').innerHTML =
+        "<div class='alert-info'>🎧 Listening... speak your command naturally.</div>";
+
+    recognition = buildRecognition();
+
+    if (recognition) {
+        recognition.start();
+    } else {
+        // Fallback: browser doesn't support Web Speech — use server mic
+        listening = false;
+        setDot('processing');
+        addLine('bot', 'Using server microphone...');
+        fetch('/voice', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            setViz(false); setDot('idle');
+            addLine('you', data.command || '(voice)');
+            addLine('bot', data.response || '');
+            document.getElementById('result').innerHTML =
+                "<div class='alert-info'><b>You said:</b> " + esc(data.command) +
+                "<br><b>Response:</b> " + esc(data.response) + "</div>";
         });
     }
+}
+
+// ── Stop button — ends the whole session
+function stopVoice() {
+    listening = false;
+    setViz(false);
+    setDot('idle');
+    clearInterim();
+
+    if (recognition) {
+        recognition.onend  = null;  // prevent auto-restart
+        recognition.onerror = null;
+        try { recognition.stop(); } catch(e){}
+        recognition = null;
+    }
+
+    fetch('/stop', {method:'POST'});
+    document.getElementById('result').innerHTML =
+        "<div class='alert-danger'>⛔ Voice session ended.</div>";
+}
 </script>
 </body>
 </html>

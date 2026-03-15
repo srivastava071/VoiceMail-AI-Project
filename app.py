@@ -6,7 +6,7 @@ from config import Config
 from database import init_db
 from oauth_config import init_oauth
 from email_service import get_latest_emails_with_body, send_email
-from speech import speak, take_voice_input, stop_speaking
+from speech import speak, take_voice_input, stop_speaking, set_language, get_language
 import sqlite3
 from reply_engine import generate_suggested_replies
 from admin_logger import log_activity, log_api_usage, get_admin_stats
@@ -24,13 +24,12 @@ google = init_oauth(app)
 # ── Helper Functions
 
 def require_login():
-    """Returns a redirect if user is not logged in, else None."""
     if "user" not in session:
         return redirect("/")
     return None
 
 
-# ── Routes 
+# ── Routes
 
 @app.route("/")
 def home():
@@ -41,15 +40,18 @@ def home():
 
 @app.route("/login")
 def login():
-    redirect_uri = request.url_root.replace("http://", "https://") + "auth"
+    if "onrender.com" in request.url_root:
+        redirect_uri = request.url_root.replace("http://", "https://") + "auth"
+    else:
+        redirect_uri = request.url_root + "auth"
     return google.authorize_redirect(redirect_uri)
+
 
 @app.route("/auth")
 def auth():
     token = google.authorize_access_token()
     user_info = token["userinfo"]
 
-    # Upsert user in DB and fetch their role
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
     c.execute(
@@ -73,6 +75,7 @@ def auth():
     session["role"]     = role
 
     log_activity(user_info["email"], "login", f"User logged in: {user_info['name']}")
+    set_language(session.get("language", "en-IN"))
 
     return redirect("/dashboard")
 
@@ -85,7 +88,6 @@ def dashboard():
 
     user_email = session.get("email", "")
 
-    # Real stats for this user
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
 
@@ -119,6 +121,7 @@ def profile():
     if request.method == "POST":
         session["language"] = request.form.get("language", "en-IN")
         session["theme"]    = request.form.get("theme", "light")
+        set_language(session["language"])   # ← sync to speech module
         return redirect("/profile")
 
     return render_template(
@@ -134,28 +137,30 @@ def logout():
     session.clear()
     return redirect("/")
 
+
 @app.route("/register_rahul")
 def register_rahul():
     from messaging_service import save_telegram_contact
     save_telegram_contact("rahul", "5530435086")
     return "Rahul Registered Successfully"
+
+
 def verify_pin():
-
     speak("Please say your four digit security pin.")
-
     pin = take_voice_input()
-
     if not pin:
         speak("I could not hear your PIN.")
         return False
-
     if pin.strip() == session.get("pin"):
         speak("PIN verified.")
         return True
     else:
         speak("Incorrect PIN. Message cancelled.")
         return False
-    
+
+
+# ── Admin Routes
+
 @app.route("/admin")
 def admin_dashboard():
     guard = require_login()
@@ -214,40 +219,16 @@ def revoke_admin():
 
 # @app.route("/admin/set_self_admin")
 # def set_self_admin():
-#     """One-time route to promote the first admin. Remove after use."""
 #     guard = require_login()
-#     if guard:
-#         return guard
+#     if guard: return guard
 #     conn = sqlite3.connect("database.db")
 #     c = conn.cursor()
 #     c.execute("UPDATE users SET role='admin' WHERE email=?", (session.get("email"),))
-#     conn.commit()
-#     conn.close()
+#     conn.commit(); conn.close()
 #     session["role"] = "admin"
 #     log_activity(session.get("email"), "self_admin_grant", "User granted themselves admin role")
 #     return redirect("/admin")
 
-@app.route("/admin/set_self_admin")
-def set_self_admin():
-    guard = require_login()
-    if guard:
-        return guard
-
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-    c.execute("UPDATE users SET role='admin' WHERE email=?", (session.get("email"),))
-    conn.commit()
-    conn.close()
-
-    session["role"] = "admin"
-
-    log_activity(
-        session.get("email"),
-        "self_admin_grant",
-        "User granted themselves admin role"
-    )
-
-    return redirect("/admin")
 
 # ── Voice Route
 
@@ -256,69 +237,91 @@ def voice():
     guard = require_login()
     if guard:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     stop_speaking()
 
+    # Sync language from session every time
+    lang = session.get("language", "en-IN")
+    set_language(lang)
+    is_hindi = (lang == "hi-IN")
+
     if not session.get("welcomed"):
-        speak(f"Welcome back, {session['user']}.")
+        welcome_msg = f"नमस्ते {session['user']}, आप वापस आ गए।" if is_hindi else f"Welcome back, {session['user']}."
+        speak(welcome_msg)
         session["welcomed"] = True
-
     
+    browser_text = None
+    if request.is_json:
+        browser_text = request.json.get("command", "").strip()
+    elif request.form:
+        browser_text = request.form.get("command", "").strip()
+ 
+    if browser_text:
+        # Browser Web Speech API already transcribed — use it directly
+        command = browser_text
+        print(f"[Browser transcript received]: {command}")
+    else:
+        prompt = "कृपया अपना आदेश बोलें।" if is_hindi else "Please speak your command."
+        speak(prompt)
+        time.sleep(0.5)
 
-    #command = take_voice_input()
-    data = request.json
-    command = data.get("command", "").lower()
+        command = take_voice_input()
 
     if not command:
         log_activity(session.get("email"), "voice_command", "Could not understand voice input", status="error")
-        speak("Sorry, I could not understand. Please try again.")
-        return jsonify({"command": "", "response": "Could not understand. Please try again."})
+        err = "माफ करें, मैं समझ नहीं पाया। कृपया फिर बोलें।" if is_hindi else "Sorry, I could not understand. Please try again."
+        speak(err)
+        return jsonify({"command": "", "response": err})
 
     command_lower = command.lower()
     log_activity(session.get("email"), "voice_command", f"Command: {command}")
 
-    # ── HELP 
-    if "help" in command_lower:
-        help_text = (
-            "You can say: Read my emails, Send email, "
-            "Check unread emails, What is the time, "
-            "What is today's date, Open Gmail, or Stop."
-        )
+    # ── HELP
+    if "help" in command_lower or "सहायता" in command_lower or "मदद" in command_lower:
+        if is_hindi:
+            help_text = ("आप कह सकते हैं: मेरे ईमेल पढ़ो, ईमेल भेजो, "
+                         "अपठित ईमेल जांचो, समय क्या है, "
+                         "आज की तारीख क्या है, जीमेल खोलो, या रुको।")
+        else:
+            help_text = ("You can say: Read my emails, Send email, "
+                         "Check unread emails, What is the time, "
+                         "What is today's date, Open Gmail, or Stop.")
         speak(help_text)
         return jsonify({"command": command, "response": help_text})
 
-    # ── TIME 
-    elif "time" in command_lower:
+    # ── TIME
+    elif "time" in command_lower or "समय" in command_lower or "टाइम" in command_lower:
         current_time = datetime.now().strftime("%I:%M %p")
-        response = f"The current time is {current_time}."
+        response = f"अभी का समय है {current_time}।" if is_hindi else f"The current time is {current_time}."
         speak(response)
         return jsonify({"command": command, "response": response})
 
-    # ── DATE 
-    elif "date" in command_lower:
+    # ── DATE
+    elif "date" in command_lower or "तारीख" in command_lower:
         today = datetime.now().strftime("%B %d, %Y")
-        response = f"Today is {today}."
+        response = f"आज की तारीख है {today}।" if is_hindi else f"Today is {today}."
         speak(response)
         return jsonify({"command": command, "response": response})
 
-    # ── CHECK UNREAD 
-    elif "check" in command_lower and "unread" in command_lower:
+    # ── CHECK UNREAD
+    elif ("check" in command_lower and "unread" in command_lower) or "अपठित" in command_lower:
         emails = get_latest_emails_with_body()
         count = len(emails)
-        response = f"You have {count} recent email{'s' if count != 1 else ''}."
+        response = f"आपके {count} नए ईमेल हैं।" if is_hindi else f"You have {count} recent email{'s' if count != 1 else ''}."
         speak(response)
         return jsonify({"command": command, "response": response})
 
-    # ── OPEN GMAIL 
-    elif "open" in command_lower and any(w in command_lower for w in ("email", "gmail", "mail")):
-        speak("Opening Gmail in your browser.")
+    # ── OPEN GMAIL
+    elif ("open" in command_lower and any(w in command_lower for w in ("email", "gmail", "mail"))) or "जीमेल" in command_lower:
+        response = "जीमेल खोल रहा हूं।" if is_hindi else "Opening Gmail in your browser."
+        speak(response)
         webbrowser.open("https://mail.google.com")
-        return jsonify({"command": command, "response": "Opening Gmail in your browser."})
+        return jsonify({"command": command, "response": response})
 
-    # ── SEND EMAIL 
-    elif "send" in command_lower and "message" in command_lower:
+    # ── SEND MESSAGE (platform selection)
+    elif ("send" in command_lower and "message" in command_lower) or "संदेश" in command_lower or "मैसेज" in command_lower:
 
-        speak("Which platform would you like to use? Gmail, WhatsApp, or Telegram?")
+        speak("कौन सा प्लेटफॉर्म? जीमेल, व्हाट्सएप, या टेलीग्राम?" if is_hindi else "Which platform? Gmail, WhatsApp, or Telegram?")
         platform = take_voice_input()
 
         if not platform:
@@ -327,20 +330,19 @@ def voice():
         platform = platform.lower()
 
         if "gmail" in platform:
-        # Redirect to email sending logic
             command_lower = "send email"
 
-        elif "whatsapp" in platform:
-            speak("Please say the recipient name.")
+        elif "whatsapp" in platform or "व्हाट्सएप" in platform:
+            speak("प्राप्तकर्ता का नाम बोलें।" if is_hindi else "Please say the recipient name.")
             recipient = take_voice_input()
 
-            speak("Please say your message.")
+            speak("अपना संदेश बोलें।" if is_hindi else "Please say your message.")
             message_text = take_voice_input()
 
-            speak("Do you want to send this message?")
+            speak("क्या आप यह संदेश भेजना चाहते हैं?" if is_hindi else "Do you want to send this message?")
             confirmation = take_voice_input()
 
-            if confirmation and "yes" in confirmation.lower():
+            if confirmation and ("yes" in confirmation.lower() or "हाँ" in confirmation or "हां" in confirmation):
                 from messaging_service import send_whatsapp
                 if not verify_pin():
                     return jsonify({"response": "Security verification failed."})
@@ -350,25 +352,24 @@ def voice():
                     log_activity(session.get("email"), "whatsapp_sent", f"To: {recipient}")
                 else:
                     log_activity(session.get("email"), "whatsapp_send_failed", f"To: {recipient}", status="error")
-                response = "WhatsApp message sent successfully." if success else "Failed to send WhatsApp message."
+                response = ("व्हाट्सएप संदेश भेजा गया।" if is_hindi else "WhatsApp message sent successfully.") if success else ("व्हाट्सएप संदेश विफल।" if is_hindi else "Failed to send WhatsApp message.")
             else:
-                response = "Message cancelled."
+                response = "संदेश रद्द किया गया।" if is_hindi else "Message cancelled."
 
             speak(response)
             return jsonify({"command": command, "response": response})
 
-        elif "telegram" in platform:
-            from messaging_service import send_telegram
-            speak("Please say the recipient name.")
+        elif "telegram" in platform or "टेलीग्राम" in platform:
+            speak("प्राप्तकर्ता का नाम बोलें।" if is_hindi else "Please say the recipient name.")
             recipient = take_voice_input()
 
-            speak("Please say your message.")
+            speak("अपना संदेश बोलें।" if is_hindi else "Please say your message.")
             message_text = take_voice_input()
 
-            speak("Do you want to send this message?")
+            speak("क्या आप यह संदेश भेजना चाहते हैं?" if is_hindi else "Do you want to send this message?")
             confirmation = take_voice_input()
 
-            if confirmation and "yes" in confirmation.lower():
+            if confirmation and ("yes" in confirmation.lower() or "हाँ" in confirmation or "हां" in confirmation):
                 from messaging_service import send_telegram
                 if not verify_pin():
                     return jsonify({"response": "Security verification failed."})
@@ -378,20 +379,22 @@ def voice():
                     log_activity(session.get("email"), "telegram_sent", f"To: {recipient}")
                 else:
                     log_activity(session.get("email"), "telegram_send_failed", f"To: {recipient}", status="error")
-                response = "Telegram message sent successfully." if success else "Failed to send Telegram message."
+                response = ("टेलीग्राम संदेश भेजा गया।" if is_hindi else "Telegram message sent successfully.") if success else ("टेलीग्राम संदेश विफल।" if is_hindi else "Failed to send Telegram message.")
             else:
-                response = "Message cancelled."
+                response = "संदेश रद्द किया गया।" if is_hindi else "Message cancelled."
 
             speak(response)
             return jsonify({"command": command, "response": response})
 
         else:
-            speak("Unknown platform selected.")
-            return jsonify({"command": command, "response": "Unknown platform."})
-    
-    elif "send" in command_lower and "email" in command_lower:
+            msg = "अज्ञात प्लेटफॉर्म।" if is_hindi else "Unknown platform selected."
+            speak(msg)
+            return jsonify({"command": command, "response": msg})
 
-        speak("Please say the recipient's email address.")
+    # ── SEND EMAIL
+    elif ("send" in command_lower and "email" in command_lower) or ("ईमेल" in command_lower and "भेजो" in command_lower):
+
+        speak("प्राप्तकर्ता का ईमेल पता बोलें।" if is_hindi else "Please say the recipient's email address.")
         recipient = take_voice_input()
 
         if not recipient:
@@ -404,22 +407,23 @@ def voice():
                      .replace(" ", "")
         )
 
-        speak("Please say the subject.")
+        speak("विषय बोलें।" if is_hindi else "Please say the subject.")
         subject = take_voice_input()
 
         if not subject:
             return jsonify({"command": command, "response": "Subject not understood."})
 
-        speak("Please say your message.")
+        speak("अपना संदेश बोलें।" if is_hindi else "Please say your message.")
         message_text = take_voice_input()
 
         if not message_text:
             return jsonify({"command": command, "response": "Message not understood."})
 
-        speak(f"Ready to send to {recipient}. Say yes to confirm or no to cancel.")
+        confirm_prompt = f"{recipient} को भेजने के लिए हाँ बोलें।" if is_hindi else f"Ready to send to {recipient}. Say yes to confirm or no to cancel."
+        speak(confirm_prompt)
         confirmation = take_voice_input()
 
-        if confirmation and "yes" in confirmation.lower():
+        if confirmation and ("yes" in confirmation.lower() or "हाँ" in confirmation or "हां" in confirmation):
             if not verify_pin():
                 return jsonify({"response": "Security verification failed."})
             success = send_email(recipient, subject, message_text)
@@ -428,29 +432,30 @@ def voice():
                 log_activity(session.get("email"), "email_sent", f"To: {recipient}, Subject: {subject}")
             else:
                 log_activity(session.get("email"), "email_send_failed", f"To: {recipient}", status="error")
-            response = (
-                f"Email sent successfully to {recipient}."
-                if success
-                else "There was an error sending the email. Please try again."
-            )
+            if is_hindi:
+                response = f"{recipient} को ईमेल भेजा गया।" if success else "ईमेल भेजने में त्रुटि।"
+            else:
+                response = f"Email sent successfully to {recipient}." if success else "There was an error sending the email."
         else:
-            response = "Email sending cancelled."
+            response = "ईमेल रद्द किया गया।" if is_hindi else "Email sending cancelled."
 
         speak(response)
         return jsonify({"command": command, "response": response})
 
-    # ── READ EMAILS 
-    elif "read" in command_lower and "email" in command_lower:
+    # ── READ EMAILS
+    elif ("read" in command_lower and "email" in command_lower) or ("ईमेल" in command_lower and "पढ़" in command_lower):
 
         emails = get_latest_emails_with_body()
         log_api_usage(session.get("email"), "gmail_read")
         log_activity(session.get("email"), "emails_read", f"Read {len(emails)} emails")
 
         if not emails:
-            speak("You have no emails.")
-            return jsonify({"command": command, "response": "No emails found."})
+            response = "आपके कोई ईमेल नहीं हैं।" if is_hindi else "You have no emails."
+            speak(response)
+            return jsonify({"command": command, "response": response})
 
-        speak(f"You have {len(emails)} email{'s' if len(emails) != 1 else ''}. Reading now.")
+        count_msg = f"आपके {len(emails)} ईमेल हैं। पढ़ रहा हूं।" if is_hindi else f"You have {len(emails)} email{'s' if len(emails) != 1 else ''}. Reading now."
+        speak(count_msg)
 
         response_data = []
 
@@ -464,7 +469,7 @@ def voice():
             except:
                 summary = body[:150]
 
-            speak(f"Email {i}. Subject: {subject}. Summary: {summary}")
+            speak(f"ईमेल {i}। विषय: {subject}। सारांश: {summary}" if is_hindi else f"Email {i}. Subject: {subject}. Summary: {summary}")
 
             response_data.append({
                 "email_number": i,
@@ -473,22 +478,21 @@ def voice():
             })
 
         return jsonify({"command": command, "emails": response_data})
-    
-    elif "suggest reply" in command_lower:
 
-        speak("Please say the message content.")
+    # ── SUGGEST REPLY
+    elif "suggest reply" in command_lower or "सुझाव" in command_lower:
+
+        speak("संदेश की सामग्री बोलें।" if is_hindi else "Please say the message content.")
         received_text = take_voice_input()
 
-        from reply_engine import generate_suggested_replies
         suggestions = generate_suggested_replies(received_text)
 
-        speak("Here are the suggested replies.")
+        speak("यहाँ सुझाए गए उत्तर हैं।" if is_hindi else "Here are the suggested replies.")
 
         for i, suggestion in enumerate(suggestions, 1):
-            speak(f"Option {i}. {suggestion}")
+            speak(f"विकल्प {i}। {suggestion}" if is_hindi else f"Option {i}. {suggestion}")
 
-        speak("Say select option 1, 2, or 3.")
-
+        speak("विकल्प 1, 2, या 3 बोलें।" if is_hindi else "Say select option 1, 2, or 3.")
         choice = take_voice_input()
 
         if choice and "1" in choice:
@@ -498,45 +502,47 @@ def voice():
         elif choice and "3" in choice:
             selected = suggestions[2]
         else:
-            speak("Invalid selection.")
+            speak("अमान्य चयन।" if is_hindi else "Invalid selection.")
             return jsonify({"response": "Invalid selection."})
 
-        speak("Do you want to send this reply?")
+        speak("क्या आप यह उत्तर भेजना चाहते हैं?" if is_hindi else "Do you want to send this reply?")
         confirm = take_voice_input()
 
-        if confirm and "yes" in confirm.lower():
-            speak("Reply sent successfully.")
+        if confirm and ("yes" in confirm.lower() or "हाँ" in confirm or "हां" in confirm):
+            speak("उत्तर भेजा गया।" if is_hindi else "Reply sent successfully.")
             return jsonify({"response": selected})
         else:
-            speak("Reply cancelled.")
+            speak("उत्तर रद्द किया गया।" if is_hindi else "Reply cancelled.")
             return jsonify({"response": "Cancelled"})
-    # ── STOP 
-    elif "stop" in command_lower:
+
+    # ── STOP
+    elif "stop" in command_lower or "रुको" in command_lower or "बंद" in command_lower:
         stop_speaking()
         return jsonify({"command": command, "response": "Stopped."})
 
-    # ── UNKNOWN 
-    speak("Sorry, I did not recognise that command. Say help to hear what I can do.")
-    return jsonify({"command": command, "response": "Command not recognised. Say 'help' for options."})
+    # ── UNKNOWN
+    unknown = "माफ करें, यह आदेश नहीं समझा। सहायता के लिए मदद बोलें।" if is_hindi else "Sorry, I did not recognise that command. Say help to hear what I can do."
+    speak(unknown)
+    return jsonify({"command": command, "response": unknown})
 
 
-# ── Stop Route 
+# ── Stop Route
 
 @app.route("/stop", methods=["POST"])
 def stop():
     stop_speaking()
     return jsonify({"status": "stopped"})
 
+
 @app.route("/show_contacts")
 def show_contacts():
-    import sqlite3
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
     c.execute("SELECT * FROM telegram_contacts")
     data = c.fetchall()
     conn.close()
     return str(data)
-# ── Entry Point 
+
 
 @app.route("/register_whatsapp")
 def register_whatsapp():
@@ -544,33 +550,28 @@ def register_whatsapp():
     save_whatsapp_contact("himanshu", "9311415530")
     return "WhatsApp Contact Saved"
 
+
 @app.route("/register_brother")
 def register_brother():
     from messaging_service import save_whatsapp_contact
-    save_whatsapp_contact("brother", "9560884631")  # ← Put real number here
+    save_whatsapp_contact("brother", "9560884631")
     return "Brother Registered Successfully"
 
 
 @app.route("/unified_inbox")
 def unified_inbox():
-
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
-
     c.execute("""
         SELECT platform, sender, receiver, message, direction, timestamp
         FROM unified_messages
         ORDER BY timestamp DESC
     """)
-
     messages = c.fetchall()
     conn.close()
-
     return render_template("unified_inbox.html", messages=messages)
 
 
-
-    
 if __name__ == "__main__":
     import os
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
